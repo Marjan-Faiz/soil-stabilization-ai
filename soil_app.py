@@ -1,274 +1,285 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+import matplotlib.pyplot as plt
 
-# ========== PAGE CONFIG ==========
+# Page config
 st.set_page_config(
     page_title="Soil Stabilization Advisor",
-    page_icon="🌱",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': None
-    }
+    page_icon="🏗️",
+    layout="wide"
 )
 
-# ========== CUSTOM CSS ==========
-custom_css = """
-<style>
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Sidebar styling - FIXED */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #F8FFF8 0%, #E8F5E9 100%);
-        border-right: 3px solid #4CAF50;
-        min-width: 320px !important;
+# Custom CSS for better UI
+st.markdown("""
+    <style>
+    .main {
+        padding: 2rem;
     }
-    
-    /* Sidebar headers bold and visible */
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 {
-        color: #2E7D32 !important;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-    }
-    
-    /* Sidebar section headers */
-    .sidebar-section-header {
-        background: #4CAF50;
-        color: white !important;
-        padding: 10px 15px;
-        border-radius: 8px;
-        margin: 15px 0;
-        font-size: 1.2rem;
-        font-weight: bold;
-    }
-    
-    /* Make all labels bold */
-    [data-testid="stSidebar"] label {
-        font-weight: bold !important;
-        color: #333 !important;
-        font-size: 1rem !important;
-        margin-top: 10px;
-        display: block;
-    }
-    
-    /* Slider styling */
-    div[data-testid="stSlider"] > label {
-        font-weight: 700 !important;
-        color: #2E7D32 !important;
-        font-size: 1.1rem !important;
-    }
-    
-    /* Button styling */
     .stButton > button {
-        background: linear-gradient(90deg, #2E7D32 0%, #4CAF50 100%);
+        background-color: #4CAF50;
         color: white;
         font-weight: bold;
-        border: none;
-        padding: 12px 24px;
         border-radius: 8px;
-        font-size: 1.1rem;
+        padding: 10px 24px;
     }
-</style>
-"""
-st.markdown(custom_css, unsafe_allow_html=True)
+    .stButton > button:hover {
+        background-color: #45a049;
+    }
+    .success-box {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    .info-box {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# ========== SIDEBAR CONTENT ==========
+# Title and header
+st.title("🏗️ Soil Stabilization Advisor")
+st.markdown("### AI-powered tool for optimal soil stabilization method selection")
+
+# Sidebar for inputs
 with st.sidebar:
-    # Custom sidebar header with icon
+    st.header("📊 Soil Parameters")
+    
+    soil_type = st.selectbox(
+        "Soil Type",
+        ["Clay", "Silt", "Sand", "Gravel", "Loam", "Peat", "Chalk"]
+    )
+    
+    plasticity_index = st.slider("Plasticity Index (PI)", 0, 50, 15)
+    cbr_value = st.slider("CBR Value (%)", 1, 100, 15)
+    moisture_content = st.slider("Moisture Content (%)", 5, 50, 20)
+    ph_value = st.slider("pH Value", 4.0, 10.0, 7.0, 0.1)
+    organic_content = st.slider("Organic Content (%)", 0.0, 20.0, 5.0, 0.5)
+    
+    load_requirement = st.selectbox(
+        "Load Requirement",
+        ["Low (Footpaths)", "Medium (Residential Roads)", "High (Highways)", "Very High (Airfield)"]
+    )
+    
+    budget = st.selectbox(
+        "Budget Constraint",
+        ["Low", "Medium", "High"]
+    )
+    
+    environmental_impact = st.selectbox(
+        "Environmental Priority",
+        ["Low", "Medium", "High"]
+    )
+    
+    analyze_btn = st.button("🚀 ANALYZE & GET RECOMMENDATIONS", use_container_width=True)
+
+# Main content area
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.markdown("### 📋 About This Tool")
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 30px;">
-        <div style="font-size: 2.5rem;">🧪</div>
-        <h2 style="color: #2E7D32; margin: 10px 0;">Soil Properties</h2>
-        <p style="color: #666; font-size: 0.9rem;">Adjust parameters below</p>
+    This AI-powered advisor recommends the most suitable soil stabilization method based on:
+    - **Soil properties** (type, plasticity, CBR, moisture, pH, organic content)
+    - **Project requirements** (load capacity, budget, environmental impact)
+    - **Technical feasibility** and **cost-effectiveness**
+    
+    The recommendations are based on published research data and engineering best practices.
+    """)
+    
+    # Display soil parameters
+    if soil_type:
+        st.markdown("### 📝 Current Input Summary")
+        params_df = pd.DataFrame({
+            "Parameter": ["Soil Type", "Plasticity Index", "CBR Value", "Moisture Content", "pH", "Organic Content"],
+            "Value": [soil_type, f"{plasticity_index}", f"{cbr_value}%", f"{moisture_content}%", f"{ph_value}", f"{organic_content}%"]
+        })
+        st.table(params_df)
+
+with col2:
+    st.markdown("### ⚙️ Common Methods")
+    methods_info = {
+        "Cement Stabilization": "Good for sandy/gravel soils",
+        "Lime Stabilization": "Best for clayey soils with high PI",
+        "Bitumen Stabilization": "Waterproofing, flexible pavement",
+        "Geotextiles": "Reinforcement, separation",
+        "Chemical Polymers": "Quick setting, low environmental impact",
+        "Mechanical Compaction": "Simple, cost-effective for granular soils"
+    }
+    
+    for method, desc in methods_info.items():
+        with st.expander(f"📌 {method}"):
+            st.write(desc)
+
+# AI Recommendation Engine
+def get_stabilization_recommendation(inputs):
+    """AI-based recommendation logic"""
+    recommendations = []
+    
+    # Rule-based logic (can be replaced with ML model)
+    soil_type = inputs["soil_type"]
+    pi = inputs["plasticity_index"]
+    cbr = inputs["cbr_value"]
+    moisture = inputs["moisture_content"]
+    load = inputs["load_requirement"]
+    budget = inputs["budget"]
+    
+    if soil_type in ["Clay", "Silt"] and pi > 15:
+        recommendations.append({
+            "method": "Lime Stabilization",
+            "confidence": "85%",
+            "reason": "Effective for high plasticity clay/silt soils",
+            "cost": "Medium",
+            "duration": "2-4 weeks"
+        })
+    
+    if soil_type in ["Sand", "Gravel"] and cbr < 20:
+        recommendations.append({
+            "method": "Cement Stabilization",
+            "confidence": "90%",
+            "reason": "Excellent for granular soils with low CBR",
+            "cost": "Medium-High",
+            "duration": "1-3 weeks"
+        })
+    
+    if moisture > 25:
+        recommendations.append({
+            "method": "Chemical Polymer Stabilization",
+            "confidence": "80%",
+            "reason": "Quick setting in high moisture conditions",
+            "cost": "High",
+            "duration": "3-7 days"
+        })
+    
+    if budget == "Low":
+        recommendations.append({
+            "method": "Mechanical Compaction with Geotextiles",
+            "confidence": "75%",
+            "reason": "Cost-effective solution for low budget projects",
+            "cost": "Low",
+            "duration": "1-2 weeks"
+        })
+    
+    if not recommendations:
+        recommendations.append({
+            "method": "Lime-Cement Composite Stabilization",
+            "confidence": "70%",
+            "reason": "General purpose solution for mixed soil conditions",
+            "cost": "Medium",
+            "duration": "2-3 weeks"
+        })
+    
+    return recommendations
+
+# Display results when button is clicked
+if analyze_btn:
+    st.markdown("---")
+    st.markdown("## 🔍 Analysis Results")
+    
+    # Create input dictionary
+    inputs = {
+        "soil_type": soil_type,
+        "plasticity_index": plasticity_index,
+        "cbr_value": cbr_value,
+        "moisture_content": moisture_content,
+        "ph_value": ph_value,
+        "organic_content": organic_content,
+        "load_requirement": load_requirement,
+        "budget": budget,
+        "environmental_impact": environmental_impact
+    }
+    
+    # Get recommendations
+    recommendations = get_stabilization_recommendation(inputs)
+    
+    # Display top recommendation
+    st.markdown("### 🏆 Top Recommendation")
+    top_rec = recommendations[0]
+    
+    st.markdown(f"""
+    <div class="success-box">
+    <h3>{top_rec['method']}</h3>
+    <p><strong>Confidence:</strong> {top_rec['confidence']}</p>
+    <p><strong>Reason:</strong> {top_rec['reason']}</p>
+    <p><strong>Estimated Cost:</strong> {top_rec['cost']}</p>
+    <p><strong>Duration:</strong> {top_rec['duration']}</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Section 1: Soil Type
-    st.markdown('<div class="sidebar-section-header">🌍 Soil Classification</div>', unsafe_allow_html=True)
-    soil_type = st.selectbox(
-        "**Select Soil Type**",
-        ["CL (Lean Clay)", "ML (Silt)", "SM (Silty Sand)", "SP (Poorly Graded Sand)", "CH (Fat Clay)"],
-        index=0
-    )
+    # Additional recommendations
+    if len(recommendations) > 1:
+        st.markdown("### 🔄 Alternative Methods")
+        cols = st.columns(len(recommendations)-1)
+        for idx, rec in enumerate(recommendations[1:], 1):
+            with cols[idx-1]:
+                st.markdown(f"""
+                <div class="info-box">
+                <h4>{rec['method']}</h4>
+                <p>Confidence: {rec['confidence']}</p>
+                <p>Cost: {rec['cost']}</p>
+                </div>
+                """, unsafe_allow_html=True)
     
-    # Section 2: Soil Composition
-    st.markdown('<div class="sidebar-section-header">📊 Soil Composition (%)</div>', unsafe_allow_html=True)
+    # Visualization
+    st.markdown("### 📈 Method Comparison")
+    methods = [rec["method"] for rec in recommendations]
+    confidence = [int(rec["confidence"].replace("%", "")) for rec in recommendations]
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        clay = st.slider("**Clay**", 0, 100, 58, key="clay_slider")
-    with col2:
-        silt = st.slider("**Silt**", 0, 100, 42, key="silt_slider")
-    with col3:
-        sand = 100 - clay - silt
-        st.metric("**Sand**", f"{sand}%")
+    fig, ax = plt.subplots(figsize=(10, 4))
+    bars = ax.barh(methods, confidence, color=['#4CAF50', '#2196F3', '#FF9800', '#9C27B0'][:len(methods)])
+    ax.set_xlabel('Confidence Score (%)')
+    ax.set_title('Method Recommendation Confidence')
+    ax.bar_label(bars, fmt='%d%%')
+    st.pyplot(fig)
     
-    # Section 3: Soil Properties
-    st.markdown('<div class="sidebar-section-header">🔬 Soil Properties</div>', unsafe_allow_html=True)
-    
-    moisture = st.slider("**Moisture Content (%)**", 0, 50, 15, 
-                        help="Optimal range: 10-25%")
-    pi = st.slider("**Plasticity Index (PI)**", 0, 50, 12,
-                  help="PI = Liquid Limit - Plastic Limit")
-    ph = st.slider("**pH Level**", 4.0, 10.0, 7.0, 0.1,
-                  help="Optimal for MICP: 6.5-8.5")
-    
-    # Section 4: Project Requirements
-    st.markdown('<div class="sidebar-section-header">🏗️ Project Requirements</div>', unsafe_allow_html=True)
-    
-    target_strength = st.number_input("**Desired UCS (MPa)**", 0.1, 10.0, 1.0, 0.1,
-                                     help="Target Unconfined Compressive Strength")
-    curing_days = st.selectbox("**Curing Time (days)**", [7, 14, 28, 56, 90],
-                              help="Longer curing = Higher strength")
-    budget = st.selectbox("**Budget Category**", ["Low", "Medium", "High", "No Limit"],
-                         help="Cost consideration")
-    
-    # Divider
-    st.markdown("---")
-    
-    # Quick tips
-    with st.expander("💡 Quick Tips"):
-        st.write("""
-        - **Clay > 40%:** Mycelium works best
-        - **Sand > 60%:** MICP recommended
-        - **Moisture 10-25%:** Optimal range
-        - **pH 6.5-8.5:** Best for MICP
-        - **Curing > 28 days:** Maximum strength gain
-        """)
-
-# ========== MAIN CONTENT ==========
-# Custom header
-st.markdown("""
-<div style="text-align: center; margin-bottom: 2rem;">
-    <h1 style="color: #2E7D32; font-size: 2.8rem; margin-bottom: 0.5rem;">🌱 Soil Stabilization Advisor</h1>
-    <p style="color: #666; font-size: 1.1rem;">AI-powered tool for optimal soil stabilization method selection</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Add analyze button at top
-col1, col2, col3 = st.columns([1,2,1])
-with col2:
-    analyze_clicked = st.button("🚀 **ANALYZE & GET RECOMMENDATIONS**", 
-                               type="primary", 
-                               use_container_width=True,
-                               help="Click to analyze soil properties")
-
-# Simple calculation function
-def get_recommendation(clay, silt, sand, moisture, pi, ph, soil_type):
-    """Simple rule-based recommendation"""
-    if clay > 40 or "Clay" in soil_type:
-        return {
-            'method': "Mycelium",
-            'myc_pct': 5.0,
-            'micp_pct': 0.0,
-            'strength': 0.6,
-            'reason': "Clayey soils respond best to mycelium"
-        }
-    elif sand > 60:
-        return {
-            'method': "MICP",
-            'myc_pct': 0.0,
-            'micp_pct': 2.0,
-            'strength': 2.0,
-            'reason': "Sandy soils have high permeability for MICP"
-        }
-    else:
-        return {
-            'method': "Hybrid",
-            'myc_pct': 15.0,
-            'micp_pct': 1.0,
-            'strength': 1.2,
-            'reason': "Mixed soils benefit from combined approach"
-        }
-
-# Cost estimation
-def estimate_cost(method, myc_pct, micp_pct, budget):
-    cost = 0
-    if method == "Mycelium":
-        cost = 50 + (myc_pct * 3)
-    elif method == "MICP":
-        cost = 100 + (micp_pct * 20)
-    else:  # Hybrid
-        cost = 150 + (myc_pct * 2) + (micp_pct * 15)
-    
-    if budget == "Low":
-        cost *= 0.8
-    elif budget == "High":
-        cost *= 1.5
-    
-    return round(cost, 2)
-
-if analyze_clicked:
-    # Get recommendations
-    rec = get_recommendation(clay, silt, sand, moisture, pi, ph, soil_type)
-    cost = estimate_cost(rec['method'], rec['myc_pct'], rec['micp_pct'], budget)
-    
-    # Display results
-    st.markdown("---")
-    
-    # Metrics
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Recommended Method", rec['method'])
-    with col2:
-        st.metric("Predicted UCS", f"{rec['strength']:.3f} MPa")
-    with col3:
-        improvement = ((rec['strength'] - 0.225) / 0.225) * 100
-        st.metric("Improvement", f"{improvement:.1f}%")
-    with col4:
-        st.metric("Estimated Cost", f"${cost}/m³")
-    
-    # Detailed recommendation box
-    recommendation_box = f"""
-    <div style="background-color: #E8F5E9; padding: 20px; border-radius: 10px; border-left: 5px solid #4CAF50; margin: 20px 0;">
-        <h3 style="color: #2E7D32; margin-top: 0;">✅ {rec['method']} STABILIZATION RECOMMENDED</h3>
-    """
-    
-    if rec['method'] == "Mycelium":
-        recommendation_box += f"""
-        <p><b>Optimal Mycelium Percentage:</b> {rec['myc_pct']}%</p>
-        <p><b>Expected UCS:</b> {rec['strength']:.3f} MPa</p>
-        <p><b>Procedure:</b> Mix {rec['myc_pct']}% mycelium with soil, maintain moisture 15-20%, cure for {curing_days} days</p>
-        """
-    elif rec['method'] == "MICP":
-        recommendation_box += f"""
-        <p><b>Chemical Concentration:</b> {rec['micp_pct']}%</p>
-        <p><b>Expected UCS:</b> {rec['strength']:.3f} MPa</p>
-        <p><b>Procedure:</b> Apply {rec['micp_pct']}% cementation solution in 3-5 cycles, cure for {curing_days} days</p>
-        """
-    else:
-        recommendation_box += f"""
-        <p><b>Mycelium:</b> {rec['myc_pct']}% | <b>MICP:</b> {rec['micp_pct']}%</p>
-        <p><b>Expected UCS:</b> {rec['strength']:.3f} MPa</p>
-        <p><b>Procedure:</b> Apply mycelium first (7 days), then MICP in 3 cycles, total {curing_days} days curing</p>
-        """
-    
-    recommendation_box += f"""
-        <p><b>Reason:</b> {rec['reason']}</p>
-    </div>
-    """
-    
-    st.markdown(recommendation_box, unsafe_allow_html=True)
-    
-    # Check target
-    if rec['strength'] >= target_strength:
-        st.success(f"🎯 **Target achieved!** Desired strength: {target_strength} MPa")
-    else:
-        st.warning(f"⚠️ **Target not met.** Desired: {target_strength} MPa | Predicted: {rec['strength']:.3f} MPa")
+    # Implementation steps
+    st.markdown("### 📋 Implementation Steps")
+    steps = [
+        "1. Conduct detailed soil testing",
+        "2. Prepare subgrade and remove debris",
+        "3. Apply recommended stabilizer at specified dosage",
+        "4. Mix thoroughly using appropriate equipment",
+        "5. Compact to required density (95% Proctor minimum)",
+        "6. Cure properly (7-14 days depending on method)",
+        "7. Perform quality control tests (CBR, UCS, density)"
+    ]
+    for step in steps:
+        st.markdown(f"- {step}")
 
 # Footer
-st.markdown("""
-<div style="text-align: center; margin-top: 50px; padding: 20px; background: #F8FFF8; border-radius: 10px;">
-    <p style="color: #666; margin: 0;">🌱 <b>Soil Stabilization Advisor v1.0</b></p>
-    <p style="color: #888; font-size: 0.9rem; margin: 5px 0;">For research and educational purposes</p>
-    <p style="color: #888; font-size: 0.8rem; margin: 0;">© 2024 | All calculations based on published research data</p>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("---")
+st.markdown("### Soil Stabilization Advisor v1.0")
+st.markdown("*For research and educational purposes*")
+st.markdown("**© 2024 | All calculations based on published research data**")
+
+# Optional: Add download report button
+if analyze_btn:
+    report_text = f"""
+    SOIL STABILIZATION REPORT
+    ==========================
+    Soil Type: {soil_type}
+    Plasticity Index: {plasticity_index}
+    CBR Value: {cbr_value}%
+    Moisture Content: {moisture_content}%
+    pH Value: {ph_value}
+    Organic Content: {organic_content}%
+    Load Requirement: {load_requirement}
+    
+    RECOMMENDATIONS:
+    """
+    for rec in recommendations:
+        report_text += f"\n- {rec['method']} (Confidence: {rec['confidence']})"
+    
+    st.download_button(
+        label="📥 Download Report",
+        data=report_text,
+        file_name="soil_stabilization_report.txt",
+        mime="text/plain"
+    )
